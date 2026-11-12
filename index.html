@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Riemann vs Lebesgue & the Normal CDF</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fffdf9;--ink:#1f2430;--mut:#6b7080;--line:#e4dfd3;--a:#c2410c;--b:#0f766e;--c:#4338ca;--d:#a21caf;--e:#e11d48;--code:#f0ece2;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161c;--card:#1c1f27;--ink:#ecebe6;--mut:#9a9eac;--line:#2e323d;--a:#fb923c;--b:#2dd4bf;--c:#a5b4fc;--d:#e879f9;--e:#fb7185;--code:#252935;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14161c;--card:#1c1f27;--ink:#ecebe6;--mut:#9a9eac;--line:#2e323d;--a:#fb923c;--b:#2dd4bf;--c:#a5b4fc;--d:#e879f9;--e:#fb7185;--code:#252935;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 Georgia,"Iowan Old Style",serif}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+.w{max-width:980px;margin:0 auto;padding:0 18px}
+header{padding:54px 0 28px}
+h1{font-size:clamp(32px,6vw,54px);line-height:1.08;margin:6px 0 12px;letter-spacing:-.02em}
+.k{font:700 12px system-ui,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--a)}
+.lead{color:var(--mut);max-width:680px;font-size:18px}
+nav{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);border-bottom:1px solid var(--line);z-index:11;overflow-x:auto;white-space:nowrap}
+nav a{display:inline-block;padding:12px 14px;font:600 13px system-ui,sans-serif;color:var(--mut);text-decoration:none}
+nav a:hover{color:var(--a)}
+section{padding:38px 0 8px}h2{font-size:28px;margin:0 0 6px}h3{font-size:19px;margin:26px 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}
+.g{display:grid;gap:14px;grid-template-columns:1fr 1fr}@media(max-width:720px){.g{grid-template-columns:1fr}}
+.m{font-family:"Cambria Math",Georgia,serif;background:var(--code);padding:10px 14px;border-radius:8px;overflow-x:auto;margin:10px 0}
+.ctl{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;font:600 12px system-ui,sans-serif;color:var(--mut)}
+.ctl label{display:flex;flex-direction:column;gap:4px;min-width:130px}
+select,input,button{font:15px system-ui,sans-serif;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+input[type=range]{padding:0}button{background:var(--a);color:#fff;border:0;font-weight:700;cursor:pointer}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font:13.5px system-ui,sans-serif;font-variant-numeric:tabular-nums}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+td.best{color:var(--b);font-weight:700}
+canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.note{border-left:4px solid var(--b);padding:8px 14px;background:var(--code);border-radius:0 8px 8px 0;margin:14px 0}.warn{border-left-color:var(--a)}
+.pill{display:inline-block;font:600 12px system-ui,sans-serif;padding:2px 9px;border-radius:20px;background:var(--code);margin:0 6px 6px 0}
+a{color:var(--c)}footer{padding:36px 0 50px;color:var(--mut);font:13px system-ui,sans-serif}
+</style>
+</head>
+<body>
+<header><div class="w">
+<div class="k">Numerical analysis · two exercises</div>
+<h1>Slicing the domain vs. slicing the range</h1>
+<p class="lead">Riemann and Lebesgue integration computed side by side, the functions where they part ways, and a standard normal CDF built from scratch with six methods.</p>
+</div></header>
+<nav><div class="w"><a href="#e1">Es 1 · Explorer</a><a href="#conv">Convergence</a><a href="#path">Pathological</a><a href="#e2">Es 2 · Normal CDF</a><a href="#liou">Liouville &amp; erf</a><a href="#sum">Summary</a></div></nav>
+
+<main class="w">
+<section id="e1">
+<div class="k">Exercise 1</div><h2>Riemann vs Lebesgue explorer</h2>
+<p>Riemann cuts the <b>x-axis</b> into n cells and samples f. Lebesgue cuts the <b>y-axis</b> into n levels and adds y<sub>k</sub> · μ{y<sub>k</sub> ≤ f &lt; y<sub>k+1</sub>}. Three Lebesgue-style variants are compared: the <b>lower sum</b> with μ exact from G(t) = μ{f ≥ t}, the <b>layer-cake</b> form, and a <b>counted-preimage</b> version where μ is estimated by binning n samples into levels (no formula for G needed).</p>
+<div class="m">∫f ≈ Σ<sub>k</sub> y<sub>k</sub>·[G(y<sub>k</sub>) − G(y<sub>k+1</sub>)] + T·G(T)   (layer cake: ∫f = m(b−a) + ∫<sub>m</sub><sup>T</sup> G(t) dt)</div>
+<div class="card">
+<div class="ctl">
+<label>Function<select id="fn">
+<option value="sin">sin x on [0, π]</option><option value="sq">x² on [0, 1]</option>
+<option value="step">1 then 3 (jump at ½)</option><option value="abs">|x − ½| on [0, 1]</option>
+<option value="inv">1/√x on (0, 1]</option><option value="step0">1 then 0 (jump at ½)</option>
+<option value="sinc">sin x / x on [0, π]</option><option value="gauss">e^(−x²) on [0, 2]</option></select></label>
+<label>n (cells = levels): <span id="nv">101</span><input type="range" id="n" min="0" max="4" value="1"></label>
+<label>Picture<select id="mode"><option value="r">Riemann rectangles</option><option value="l">Lebesgue layers</option></select></label>
+</div>
+<canvas id="cv" width="900" height="300"></canvas>
+<div class="tw"><table id="res"></table></div>
+<p id="fnote" style="color:var(--mut);margin:6px 0 0"></p>
+</div>
+</section>
+
+<section id="conv">
+<h2>Convergence</h2>
+<p>Absolute error against n on log–log axes (odd n, so jumps fall inside a cell). Dotted lines: 1/n and 1/n². Errors below 10⁻¹⁶ are clamped. The table above reports the observed order between n/10 and n.</p>
+<div class="card"><canvas id="cc" width="900" height="360"></canvas>
+<div class="g" style="margin-top:12px">
+<div><b>Smooth f.</b> Midpoint and trapezoid reach order 2. Lebesgue lower and counted sums have order 1 (a staircase of step Δy). The layer-cake form gains ≈ 1.5 (exact when G is linear, as for |x − ½|).</div>
+<div><b>Jumps.</b> Lebesgue is exact: f is already a simple function. Riemann loses O(1/n) in the jump cell. <b>Unbounded f:</b> all methods are stuck near order ½ (range truncated at T = √n); left and trapezoid fail at x = 0.</div></div></div>
+<div class="note"><b>Same limit?</b> Yes. Every Riemann-integrable f is Lebesgue-integrable with the same value, and all methods converge to it. The practical difference: Lebesgue needs μ of preimages, cheap when G is analytic, but when estimated from samples (the counted variant) it is Riemann in disguise; compare its error with the midpoint rule.</div>
+</section>
+
+<section id="path">
+<div class="k">Where the two theories differ</div><h2>Pathological functions</h2>
+<div class="g">
+<div class="card"><h3 style="margin-top:0">Dirichlet</h3>
+<p>1 on ℚ, 0 on ℝ∖ℚ. Every cell holds both kinds of point: lower Darboux sums are 0, upper sums 1, so <b>not Riemann-integrable</b>. ℚ∩[0,1] is countable, coverable by intervals of length ε/2<sup>k</sup>: μ = 0, so the <b>Lebesgue integral is 0</b>.</p>
+<div class="ctl"><label>Riemann tags<select id="tag"><option value="q">rational (k/n)</option><option value="i">irrational</option></select></label>
+<label>n<input id="dn" type="number" value="100" min="1" max="100000"></label><button id="db">Sum</button></div>
+<p id="dout" style="font:600 15px system-ui,sans-serif"></p>
+<p class="m" style="font-size:14px">Trap: every double is rational, so naive code returns 1 for both methods. Exact arithmetic or a measure argument is needed.</p></div>
+<div class="card"><h3 style="margin-top:0">Thomae</h3>
+<p>f(p/q) = 1/q, 0 on irrationals. Continuous at every irrational, so <b>Riemann-integrable with integral 0</b>. For Lebesgue, {f ≥ 1/m} is finite, so μ{f ≥ t} = 0 for all t &gt; 0.</p>
+<div class="ctl"><label>n cells<input id="tn" type="number" value="1000" min="2" max="20000"></label><button id="tb">Compute</button></div>
+<div class="tw"><table id="tt"></table></div>
+<p style="color:var(--mut);font-size:14px">Computed live in exact integer arithmetic. Lower sums are 0; the upper Darboux sum U<sub>n</sub> takes 1/q<sub>min</sub> on each cell, q<sub>min</sub> being the smallest denominator in it. It decays slowly (roughly n<sup>−1/2</sup>).</p></div>
+</div>
+</section>
+
+<section id="e2">
+<div class="k">Exercise 2</div><h2>The standard normal CDF</h2>
+<div class="m">Φ(x) = ∫<sub>−∞</sub><sup>x</sup> φ(t) dt,  φ(t) = e<sup>−t²/2</sup>/√(2π)  =  ½[1 + erf(x/√2)]</div>
+<p>Six methods: trapezoid and Simpson on ½ + ∫<sub>0</sub><sup>x</sup>φ; composite 5-point Gauss–Legendre; the <b>erf Maclaurin series</b> erf(z) = (2/√π) Σ (−1)<sup>k</sup> z<sup>2k+1</sup>/(k!(2k+1)), alternating and so prone to cancellation; the positive-term series Φ = ½ + φ(x)·Σ x<sup>2k+1</sup>/(2k+1)!!; and the <b>hybrid</b> (that series for |x| &lt; 3, a continued fraction Q(x) = φ(x)/(x + 1/(x + 2/(x + …))) for the tail). Abramowitz–Stegun 26.2.17 (|error| &lt; 7.5·10⁻⁸) is the cheap approximation baseline. Background: <a href="https://faculty.etsu.edu/gardnerr/4047/notes-Hogg-McKean-Craig/Hogg-McKean-Craig-3-4.pdf" target="_blank" rel="noopener">Hogg–McKean–Craig §3.4</a> (normal distribution).</p>
+<div class="card"><div class="ctl">
+<label>x<input id="x" type="number" value="1.96" step="0.01" min="-10" max="10"></label>
+<label>Quadrature panels n<input id="qn" type="number" value="200" min="2" max="200000"></label>
+<button id="xb">Compute</button></div>
+<p id="refnote" style="color:var(--mut);font:13px system-ui,sans-serif;margin:8px 0 0"></p>
+<div class="tw"><table id="xr"></table></div></div>
+
+<h3>Checked offline against a 50-digit mpmath reference</h3>
+<p>Relative errors with n = 200 panels. R’s <code>pnorm(1.96)</code> prints 0.9750021, matching.</p>
+<div class="card tw"><table>
+<tr><th>x</th><th>Φ(x) reference</th><th>trapezoid</th><th>Simpson</th><th>series</th><th>hybrid</th><th>A&amp;S</th></tr>
+<tr><td>0.5</td><td>0.69146246127401</td><td>1.3e-7</td><td>1.5e-13</td><td>1.4e-16</td><td class="best">1.4e-16</td><td>9.4e-9</td></tr>
+<tr><td>1.96</td><td>0.97500210485178</td><td>9.4e-7</td><td>5.1e-12</td><td>6.5e-17</td><td class="best">6.5e-17</td><td>7.2e-8</td></tr>
+<tr><td>3</td><td>0.99865010196837</td><td>2.5e-7</td><td>2.2e-11</td><td>1.2e-16</td><td class="best">9.0e-18</td><td>6.9e-8</td></tr>
+<tr><td>−3</td><td>1.3498980316301e-3</td><td>1.8e-4</td><td>1.7e-8</td><td>8.9e-14</td><td class="best">3.7e-17</td><td>5.1e-5</td></tr>
+<tr><td>−5</td><td>2.8665157187919e-7</td><td>1.4e-3</td><td>1.2e-6</td><td>6.2e-10</td><td class="best">1.9e-16</td><td>1.6e-3</td></tr>
+<tr><td>−8</td><td>6.2209605742718e-16</td><td>7.1e-2</td><td>1.1e-1</td><td>1.6e-1</td><td class="best">1.2e-16</td><td>1.0e-2</td></tr></table></div>
+<div class="g">
+<div class="card"><b>Efficiency</b> for error &lt; 10⁻¹² at x = 1.96: trapezoid ≈ 262,000 exp evaluations (order 2); Simpson ≈ 513 (order 4); Gauss–Legendre 8 nodes; the series 18 terms and one exp. Try the live table: it times every method.</div>
+<div class="card"><b>Tails.</b> Computing Φ(−x) as 1 − Φ(x), or as ½ − (a sum), cancels almost all significant digits. Only a direct tail evaluation (continued fraction) keeps full <em>relative</em> accuracy at x = −8 (Φ ≈ 6·10⁻¹⁶). The erf Maclaurin series also degrades for |x| ≳ 4 because its alternating terms grow before they shrink.</div></div>
+</section>
+
+<section id="liou">
+<h2>Why Φ is not elementary (Liouville)</h2>
+<p>For rational f and g, ∫ f·e<sup>g</sup> dx is elementary only if there is a <em>rational</em> R with f = R′ + R·g′. For the Gaussian, f = 1 and g = −x²/2, so we would need</p>
+<div class="m">R′(x) − x·R(x) = 1.</div>
+<p>If R is a polynomial of degree d, R′ − xR has degree d + 1 ≥ 1 and cannot equal 1. If R has a pole of order k, R′ has order k + 1 there while xR has order k, so the pole cannot cancel. No such R exists: no elementary antiderivative.</p>
+<div class="note warn">That does not make Φ uncomputable. Defining erf(z) = (2/√π)∫<sub>0</sub><sup>z</sup>e<sup>−t²</sup>dt gives the exact statement Φ(x) = ½[1 + erf(x/√2)], but this only <em>names</em> the integral. Computers still evaluate erf by series, continued fractions, quadrature or tuned rational approximations, which is exactly what the table above compares.</div>
+</section>
+
+<section id="sum">
+<h2>Summary</h2>
+<span class="pill">Smooth: Riemann midpoint wins</span><span class="pill">Jumps: Lebesgue exact</span><span class="pill">Unbounded: both O(n<sup>−½</sup>)</span><span class="pill">Dirichlet: only Lebesgue</span><span class="pill">Thomae: both give 0</span><span class="pill">Normal CDF: hybrid series + continued fraction</span>
+</section>
+</main>
+<footer><div class="w">Static reference values come from Python (mpmath). Everything else is computed live in your browser.</div></footer>
+
+<script>
+const $=i=>document.getElementById(i),P=Math.PI;
+const sincf=x=>x<1e-12?1:Math.sin(x)/x;
+const F={
+sin:{a:0,b:P,ex:2,m:0,M:1,f:Math.sin,G:t=>t<=0?P:t>1?0:P-2*Math.asin(t),note:"Smooth: expect order 2 for midpoint and trapezoid."},
+sq:{a:0,b:1,ex:1/3,m:0,M:1,f:x=>x*x,G:t=>t<=0?1:t>1?0:1-Math.sqrt(t),note:"Left sum has order 1; midpoint order 2."},
+step:{a:0,b:1,ex:2,m:1,M:3,f:x=>x<.5?1:3,G:t=>t<=1?1:t<=3?.5:0,note:"A simple function: the Lebesgue sum is exact, Riemann loses O(1/n) at the jump."},
+abs:{a:0,b:1,ex:.25,m:0,M:.5,f:x=>Math.abs(x-.5),G:t=>t<=0?1:t>.5?0:1-2*t,note:"G is linear, so the layer-cake rule is exact."},
+inv:{a:0,b:1,ex:2,m:1,M:Infinity,f:x=>1/Math.sqrt(x),G:t=>t<=1?1:1/(t*t),note:"Unbounded: left and trapezoid fail at 0 (shown as —). Lebesgue truncates the range at T = √n."},
+step0:{a:0,b:1,ex:.5,m:0,M:1,f:x=>x<.5?1:0,G:t=>t<=0?1:t<=1?.5:0,note:"Indicator of [0, ½): Lebesgue sum exact."},
+sinc:{a:0,b:P,ex:1.8519370519824662,m:0,M:1,f:sincf,G:t=>{if(t<=0)return P;if(t>=1)return 0;let l=0,h=P;for(let i=0;i<40;i++){const m=(l+h)/2;sincf(m)>=t?l=m:h=m}return l},note:"G needs a root-finder, so the exact-measure Lebesgue sums are the slowest here."},
+gauss:{a:0,b:2,ex:0.8820813907624215,m:Math.exp(-4),M:1,f:x=>Math.exp(-x*x),G:t=>t<=Math.exp(-4)?2:t>1?0:Math.sqrt(-Math.log(t)),note:"The Gaussian: ∫₀² e^(−x²) = (√π/2)·erf(2), the same non-elementary integral behind Φ."}
+};
+function riem(o,n,r){const h=(o.b-o.a)/n;let s=0;
+ if(r=="L")for(let i=0;i<n;i++)s+=o.f(o.a+i*h);
+ else if(r=="M")for(let i=0;i<n;i++)s+=o.f(o.a+(i+.5)*h);
+ else{s=(o.f(o.a)+o.f(o.b))/2;for(let i=1;i<n;i++)s+=o.f(o.a+i*h)}
+ s*=h;return isFinite(s)?s:NaN}
+const top=(o,n)=>isFinite(o.M)?o.M:Math.sqrt(n);
+function lebL(o,n){const T=top(o,n),d=(T-o.m)/n,y=k=>k==n?T:o.m+k*d;let s=0,g0=o.G(o.m);
+ for(let k=0;k<n;k++){const g1=o.G(y(k+1));s+=y(k)*(g0-g1);g0=g1}return s+T*g0}
+function lebC(o,n){const T=top(o,n),d=(T-o.m)/n;let s=0;for(let k=0;k<n;k++)s+=o.G(o.m+(k+.5)*d);return o.m*(o.b-o.a)+d*s}
+function lebS(o,n){const T=top(o,n),d=(T-o.m)/n,h=(o.b-o.a)/n;let s=0;
+ for(let i=0;i<n;i++){const v=Math.min(Math.max(o.f(o.a+(i+.5)*h),o.m),T),k=Math.min(Math.floor((v-o.m)/d+1e-9),n);s+=(o.m+k*d)*h}return s}
+const METH=[["Riemann left",(o,n)=>riem(o,n,"L")],["Riemann midpoint",(o,n)=>riem(o,n,"M")],["Riemann trapezoid",(o,n)=>riem(o,n,"T")],["Lebesgue lower sum",lebL],["Lebesgue layer-cake",lebC],["Lebesgue counted",lebS]];
+const COL=["--mut","--b","--c","--a","--d","--e"];
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const NS=[11,101,1001,10001,100001];
+const sn=e=>e===0?"0":e.toExponential(1);
+const err=(o,fn,n)=>{const v=fn(o,n);return isNaN(v)?NaN:Math.abs(v-o.ex)};
+function order(o,fn,n){const m=Math.max(5,Math.round(n/10)|1),e1=err(o,fn,n),e0=err(o,fn,m);
+ if(!(e1>1e-15)||!(e0>1e-15))return "—";return (Math.log(e0/e1)/Math.log(n/m)).toFixed(2)}
+
+function plot(){
+ const o=F[$("fn").value],cv=$("cv"),c=cv.getContext("2d"),W=cv.width,H=cv.height,pd=28;
+ const nn=Math.min(NS[+$("n").value],40),mode=$("mode").value;
+ c.clearRect(0,0,W,H);
+ const cap=isFinite(o.M)?o.M:6,ymax=cap*1.08,X=x=>pd+(x-o.a)/(o.b-o.a)*(W-2*pd),Y=y=>H-pd-Math.min(y,ymax)/ymax*(H-2*pd);
+ c.fillStyle=css(mode=="r"?"--b":"--a");c.globalAlpha=.28;
+ if(mode=="r"){const h=(o.b-o.a)/nn;for(let i=0;i<nn;i++){const y=o.f(o.a+(i+.5)*h);c.fillRect(X(o.a+i*h),Y(y),X(o.a+h)-X(o.a)-1,H-pd-Y(y))}}
+ else{const T=isFinite(o.M)?o.M:6,d=(T-o.m)/nn;for(let px=0;px<=W-2*pd;px+=2){const x=o.a+(px+1e-6)/(W-2*pd)*(o.b-o.a),v=Math.min(Math.max(o.f(x),o.m),T),k=Math.min(Math.floor((v-o.m)/d+1e-9),nn),ys=o.m+k*d;c.fillRect(pd+px,Y(ys),2,H-pd-Y(ys))}}
+ c.globalAlpha=1;c.strokeStyle=css("--ink");c.lineWidth=2;c.beginPath();
+ for(let i=0;i<=400;i++){const x=o.a+(o.b-o.a)*(i+(i==0?.001:0))/400,y=o.f(x);i?c.lineTo(X(x),Y(y)):c.moveTo(X(x),Y(y))}c.stroke();
+ c.strokeStyle=css("--line");c.lineWidth=1;c.beginPath();c.moveTo(pd,H-pd);c.lineTo(W-pd,H-pd);c.moveTo(pd,pd);c.lineTo(pd,H-pd);c.stroke();
+ c.fillStyle=css("--mut");c.font="13px system-ui";c.fillText(mode=="r"?nn+" midpoint rectangles shown":nn+" range levels shown (lower simple function)",pd+6,pd-8);
+}
+function table(){
+ const o=F[$("fn").value],n=NS[+$("n").value];$("nv").textContent=n;
+ let h="<tr><th>Method</th><th>Value</th><th>|Error|</th><th>Order (n/10→n)</th><th>Time (ms)</th></tr>";
+ METH.forEach(([nm,fn])=>{const t=performance.now(),v=fn(o,n),dt=performance.now()-t;
+  h+=`<tr><td>${nm}</td><td>${isNaN(v)?"—":v.toFixed(10)}</td><td>${isNaN(v)?"—":sn(Math.abs(v-o.ex))}</td><td>${isNaN(v)?"—":order(o,fn,n)}</td><td>${dt.toFixed(2)}</td></tr>`});
+ $("res").innerHTML=h+`<tr><td>Exact</td><td>${o.ex.toFixed(10)}</td><td></td><td></td><td></td></tr>`;
+ $("fnote").textContent=o.note;plot();conv();
+}
+function conv(){
+ const o=F[$("fn").value],cv=$("cc"),c=cv.getContext("2d"),W=cv.width,H=cv.height,L=60,B=36,T=14,R=150;
+ const ns=[11,23,47,101,215,465,1001,2155,4643,10001,21545];
+ c.clearRect(0,0,W,H);
+ const lx=n=>L+(Math.log10(n)-1)/(Math.log10(21545)-1)*(W-L-R),ly=e=>T+(1-(Math.log10(Math.max(e,1e-16))+16)/17)*(H-T-B);
+ c.strokeStyle=css("--line");c.fillStyle=css("--mut");c.font="12px system-ui";c.lineWidth=1;
+ for(let p=-16;p<=0;p+=4){c.beginPath();c.moveTo(L,ly(10**p));c.lineTo(W-R,ly(10**p));c.stroke();c.fillText("1e"+p,8,ly(10**p)+4)}
+ [10,100,1000,10000].forEach(n=>c.fillText(n,lx(n)-12,H-14));
+ c.setLineDash([3,4]);[1,2].forEach(k=>{c.beginPath();c.moveTo(lx(11),ly(11**-k));c.lineTo(lx(21545),ly(21545**-k));c.stroke();c.fillText("n^-"+k,lx(21545)+4,ly(21545**-k)+4)});c.setLineDash([]);
+ METH.forEach(([nm,fn],j)=>{c.strokeStyle=css(COL[j]);c.fillStyle=css(COL[j]);c.lineWidth=2;c.beginPath();let st=false;
+  ns.forEach(n=>{const v=fn(o,n);if(isNaN(v))return;const x=lx(n),y=ly(Math.abs(v-o.ex));st?c.lineTo(x,y):c.moveTo(x,y);st=true});c.stroke();
+  c.fillRect(W-R+30,T+8+j*20,14,4);c.fillStyle=css("--ink");c.fillText(nm.replace("Riemann","R.").replace("Lebesgue","L."),W-R+50,T+14+j*20)});
+}
+$("n").max=NS.length-1;
+["fn","n","mode"].forEach(i=>$(i).addEventListener("input",table));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",table);
+table();
+
+/* Dirichlet */
+$("db").onclick=()=>{const n=Math.max(1,Math.min(100000,+$("dn").value|0)),q=$("tag").value=="q";
+ $("dout").textContent=q?`n = ${n}, rational tags: Σ f·Δx = ${n}·(1/${n}) = 1`:`n = ${n}, irrational tags: Σ f·Δx = 0. Both are valid Riemann sums, so the limit does not exist.`};
+$("db").click();
+
+/* Thomae: exact upper Darboux sums */
+function thomae(n){let U=0;for(let i=1;i<=n;i++)for(let q=1;q<=n;q++){if(Math.ceil(q*(i-1)/n)<=Math.floor(q*i/n)){U+=1/q;break}}return U/n}
+function thomaeCount(m){const ph=Array.from({length:m+1},(_,i)=>i);for(let p=2;p<=m;p++)if(ph[p]==p)for(let k=p;k<=m;k+=p)ph[k]-=ph[k]/p;let s=1;for(let q=1;q<=m;q++)s+=ph[q];return s}
+$("tb").onclick=()=>{const n=Math.max(2,Math.min(20000,+$("tn").value|0)),m=Math.max(1,Math.round(n/10));
+ const t=performance.now(),U=thomae(n),dt=performance.now()-t;
+ $("tt").innerHTML=`<tr><th>n</th><th>upper U<sub>n</sub></th><th>lower L<sub>n</sub></th><th>U<sub>n</sub>·√n</th><th>#{f ≥ 1/m}, m = ${m}</th></tr><tr><td>${n}</td><td>${U.toFixed(5)}</td><td>0</td><td>${(U*Math.sqrt(n)).toFixed(3)}</td><td>${thomaeCount(m)}</td></tr><tr><td colspan="5" style="color:var(--mut)">${dt.toFixed(1)} ms. Finite level sets: μ{f ≥ 1/m} = 0 for every m.</td></tr>`};
+$("tb").click();
+
+/* Normal CDF */
+const IS=1/Math.sqrt(2*P),phi=x=>IS*Math.exp(-x*x/2);
+const half=g=>x=>x>=0?g(x):1-g(-x);
+const trap=(x,n)=>{const h=x/n;let s=(phi(0)+phi(x))/2;for(let i=1;i<n;i++)s+=phi(i*h);return .5+s*h};
+const simp=(x,n)=>{n+=n%2;const h=x/n;let s=phi(0)+phi(x);for(let i=1;i<n;i++)s+=(i%2?4:2)*phi(i*h);return .5+s*h/3};
+const GLn=[0,.5384693101056831,-.5384693101056831,.906179845938664,-.906179845938664],GLw=[.5688888888888889,.47862867049936647,.47862867049936647,.23692688505618908,.23692688505618908];
+const gl=(x,n)=>{const h=x/n;let s=0;for(let i=0;i<n;i++){const c=(i+.5)*h;for(let j=0;j<5;j++)s+=GLw[j]*phi(c+GLn[j]*h/2)}return .5+s*h/2};
+function erfSer(z){let t=z,s=z;for(let k=1;k<400;k++){t*=-z*z/k;const u=t/(2*k+1);s+=u;if(Math.abs(u)<1e-18*Math.abs(s))break}return 2/Math.sqrt(P)*s}
+const erfPhi=x=>.5*(1+erfSer(x/Math.SQRT2));
+function series(x){let t=x,s=x;for(let k=1;k<3000&&Math.abs(t)>1e-17*Math.abs(s);k++){t*=x*x/(2*k+1);s+=t}return .5+phi(x)*s}
+function tail(x){const tn=1e-300;let f=x||tn,C=f,D=0;for(let k=1;k<500;k++){D=x+k*D;if(!D)D=tn;C=x+k/C;if(!C)C=tn;D=1/D;const d=C*D;f*=d;if(Math.abs(d-1)<1e-16)break}return phi(x)/f}
+const hybrid=x=>Math.abs(x)<3?series(x):x>0?1-tail(x):tail(-x);
+function as7(x){const t=1/(1+.2316419*Math.abs(x)),b=[.31938153,-.356563782,1.781477937,-1.821255978,1.330274429];
+ const q=phi(x)*t*(b[0]+t*(b[1]+t*(b[2]+t*(b[3]+t*b[4]))));return x>=0?1-q:q}
+const REF={0:.5,1:.8413447460685429,2:.9772498680518208,"-1":.15865525393145707,.5:.69146246127401,1.96:.97500210485178,3:.99865010196837,"-3":1.3498980316301e-3,"-5":2.8665157187919e-7,"-8":6.2209605742718e-16};
+function calc(){
+ const x=+$("x").value,n=Math.max(2,Math.min(200000,+$("qn").value|0));
+ if(!isFinite(x)||Math.abs(x)>10){$("xr").innerHTML="<tr><td>Enter x between −10 and 10.</td></tr>";return}
+ const tr=REF[String(x)]!==undefined,ref=tr?REF[String(x)]:hybrid(x);
+ $("refnote").textContent=tr?"Reference: trusted high-precision value (mpmath / published).":"Reference: no stored value for this x, so the hybrid method is used as reference (its error shows as 0).";
+ const M=[["Trapezoid",half(a=>trap(a,n))],["Simpson",half(a=>simp(a,n))],["Gauss–Legendre 5-pt",half(a=>gl(a,n))],["erf Maclaurin series",erfPhi],["Series (½ + φ·Σ)",series],["Hybrid (series + cont. fraction)",hybrid],["Abramowitz–Stegun",as7]];
+ let h=`<tr><th>Method</th><th>Φ(${x})</th><th>Relative error</th><th>µs / call</th></tr>`;
+ M.forEach(([nm,fn])=>{const t=performance.now();let v;for(let i=0;i<200;i++)v=fn(x);const us=(performance.now()-t)/200*1000;
+  h+=`<tr><td>${nm}</td><td>${v.toPrecision(15)}</td><td>${sn(Math.abs(v-ref)/ref)}</td><td>${us.toFixed(2)}</td></tr>`});
+ $("xr").innerHTML=h}
+$("xb").onclick=calc;["x","qn"].forEach(i=>$(i).addEventListener("input",calc));calc();
+</script>
+</body>
+</html>
